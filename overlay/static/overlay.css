@@ -1,0 +1,48 @@
+/* YGO Card Overlay - OBS Browser Source Styles */
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    width: 1920px;
+    height: 1080px;
+}
+
+#card-container {
+    position: fixed;
+    bottom: 40px;
+    left: 40px;
+    width: 250px;
+    height: auto;
+}
+
+.card-display {
+    position: relative;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    margin-bottom: 10px;
+}
+
+.card-display.visible {
+    opacity: 1;
+}
+
+.card-image {
+    width: 250px;
+    height: auto;
+    display: block;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+}
+
+.card-name {
+    color: white;
+    font-family: 'Arial', sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 8px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    padding: 0 10px;
+}

@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "version": "test",
+    "card_count": 15
+  },
+  "entries": {
+    "ash": {
+      "id": 14558127,
+      "name": "Ash Blossom & Joyous Spring",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "ash blossom": {
+      "id": 14558127,
+      "name": "Ash Blossom & Joyous Spring",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "nib": {
+      "id": 27204311,
+      "name": "Nibiru, the Primal Being",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "nibiru": {
+      "id": 27204311,
+      "name": "Nibiru, the Primal Being",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "imperm": {
+      "id": 10045474,
+      "name": "Infinite Impermanence",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "maxx c": {
+      "id": 23434538,
+      "name": "Maxx \"C\"",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "cbtg": {
+      "id": 24224830,
+      "name": "Called by the Grave",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "called by": {
+      "id": 24224830,
+      "name": "Called by the Grave",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "called by the grave": {
+      "id": 24224830,
+      "name": "Called by the Grave",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "drnm": {
+      "id": 48382095,
+      "name": "Dark Ruler No More",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "se ash": {
+      "id": 76794549,
+      "name": "Snake-Eye Ash",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "snake eye ash": {
+      "id": 76794549,
+      "name": "Snake-Eye Ash",
+      "confidence": 1.0,
+      "source": "universal"
+    },
+    "snake eye": {
+      "archetype": "Snake-Eye",
+      "confidence": 1.0,
+      "source": "community_slang"
+    },
+    "salads": {
+      "archetype": "Salamangreat",
+      "confidence": 1.0,
+      "source": "community_slang"
+    }
+  }
+}

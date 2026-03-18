@@ -1,0 +1,421 @@
+{
+  "_meta": {
+    "version": "2026-03-01",
+    "card_count": 80,
+    "last_banlist": "2026-02-02",
+    "notes": "Initial seed for Part 1 implementation"
+  },
+  "entries": {
+    "ash": {
+      "id": 14558127,
+      "name": "Ash Blossom & Joyous Spring",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "ash blossom": {
+      "id": 14558127,
+      "name": "Ash Blossom & Joyous Spring",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "ash blossum": {
+      "id": 14558127,
+      "name": "Ash Blossom & Joyous Spring",
+      "confidence": 0.9,
+      "source": "stt_error",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "nib": {
+      "id": 27204311,
+      "name": "Nibiru, the Primal Being",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "nibiru": {
+      "id": 27204311,
+      "name": "Nibiru, the Primal Being",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "nibirue": {
+      "id": 27204311,
+      "name": "Nibiru, the Primal Being",
+      "confidence": 0.9,
+      "source": "stt_error",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "imperm": {
+      "id": 10045474,
+      "name": "Infinite Impermanence",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "infinite imperm": {
+      "id": 10045474,
+      "name": "Infinite Impermanence",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "infinite impermanence": {
+      "id": 10045474,
+      "name": "Infinite Impermanence",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "impermanance": {
+      "id": 10045474,
+      "name": "Infinite Impermanence",
+      "confidence": 0.9,
+      "source": "stt_error",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "veiler": {
+      "id": 97268402,
+      "name": "Effect Veiler",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "ogre": {
+      "id": 59438930,
+      "name": "Ghost Ogre & Snow Rabbit",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "ghost ogre": {
+      "id": 59438930,
+      "name": "Ghost Ogre & Snow Rabbit",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "droll": {
+      "id": 94145021,
+      "name": "Droll & Lock Bird",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "belle": {
+      "id": 73642296,
+      "name": "Ghost Belle & Haunted Mansion",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "ghost belle": {
+      "id": 73642296,
+      "name": "Ghost Belle & Haunted Mansion",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "maxx c": {
+      "id": 23434538,
+      "name": "Maxx \"C\"",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "lancea": {
+      "id": 27553701,
+      "name": "Artifact Lancea",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "d shifter": {
+      "id": 91800273,
+      "name": "Dimension Shifter",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "dimension shifter": {
+      "id": 91800273,
+      "name": "Dimension Shifter",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "drnm": {
+      "id": 48382095,
+      "name": "Dark Ruler No More",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "dark ruler": {
+      "id": 48382095,
+      "name": "Dark Ruler No More",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "lstorm": {
+      "id": 14532163,
+      "name": "Lightning Storm",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "lightning storm": {
+      "id": 14532163,
+      "name": "Lightning Storm",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "evenly": {
+      "id": 15693423,
+      "name": "Evenly Matched",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "hfd": {
+      "id": 18144506,
+      "name": "Harpie's Feather Duster",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "feather duster": {
+      "id": 18144506,
+      "name": "Harpie's Feather Duster",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "raigeki": {
+      "id": 12580477,
+      "name": "Raigeki",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "cbtg": {
+      "id": 24224830,
+      "name": "Called by the Grave",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "called by": {
+      "id": 24224830,
+      "name": "Called by the Grave",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "rota": {
+      "id": 32807846,
+      "name": "Reinforcement of the Army",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "reborn": {
+      "id": 83764718,
+      "name": "Monster Reborn",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "pot of greed": {
+      "id": 55144522,
+      "name": "Pot of Greed",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "foolish": {
+      "id": 81439173,
+      "name": "Foolish Burial",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "se ash": {
+      "id": 76794549,
+      "name": "Snake-Eye Ash",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "snake eye ash": {
+      "id": 76794549,
+      "name": "Snake-Eye Ash",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "se oak": {
+      "id": 27107590,
+      "name": "Snake-Eye Oak",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "snake eye oak": {
+      "id": 27107590,
+      "name": "Snake-Eye Oak",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "poplar": {
+      "id": 89252157,
+      "name": "Snake-Eyes Poplar",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "flamberge": {
+      "id": 30498149,
+      "name": "Snake-Eyes Flamberge Dragon",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "diabell": {
+      "id": 5126490,
+      "name": "Diabellstar the Black Witch",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "princess": {
+      "id": 44146295,
+      "name": "Promethean Princess, Bestower of Flames",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "promethean": {
+      "id": 44146295,
+      "name": "Promethean Princess, Bestower of Flames",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "yubel": {
+      "id": 78371393,
+      "name": "Yubel",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "terror incarnate": {
+      "id": 4779091,
+      "name": "Yubel - Terror Incarnate",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "ultimate nightmare": {
+      "id": 61041256,
+      "name": "Yubel - The Ultimate Nightmare",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "advent": {
+      "id": 42903853,
+      "name": "Opening of the Spirit Gates",
+      "confidence": 1.0,
+      "source": "universal",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "salads": {
+      "archetype": "Salamangreat",
+      "confidence": 1.0,
+      "source": "community_slang",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "floo": {
+      "archetype": "Floowandereeze",
+      "confidence": 1.0,
+      "source": "community_slang",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "flunder": {
+      "archetype": "Floowandereeze",
+      "confidence": 1.0,
+      "source": "community_slang",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "tenpai": {
+      "archetype": "Tenpai Dragon",
+      "confidence": 1.0,
+      "source": "community_slang",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    },
+    "snake eye": {
+      "archetype": "Snake-Eye",
+      "confidence": 1.0,
+      "source": "community_slang",
+      "added": "2026-03-01",
+      "last_verified": "2026-03-01"
+    }
+  }
+}

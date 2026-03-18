@@ -1,0 +1,50 @@
+[
+  {
+    "transcript": "he activates Ash Blossom in response to the Branded Fusion",
+    "expected_cards": [
+      {"name": "Ash Blossom & Joyous Spring", "source": "alias"}
+    ],
+    "description": "Simple alias match - ash blossom",
+    "tier": 1
+  },
+  {
+    "transcript": "and he's got the Nib! Nibiru comes down and wipes the board",
+    "expected_cards": [
+      {"name": "Nibiru, the Primal Being", "source": "alias"}
+    ],
+    "description": "Same card mentioned twice (alias + full name), should match",
+    "tier": 1
+  },
+  {
+    "transcript": "and that's going to be game, what a fantastic finals",
+    "expected_cards": [],
+    "description": "No card mentions — should produce zero matches",
+    "tier": 1
+  },
+  {
+    "transcript": "activates the imperm from the backrow targeting the snake eye ash",
+    "expected_cards": [
+      {"name": "Infinite Impermanence", "source": "alias"},
+      {"name": "Snake-Eye Ash", "source": "alias"}
+    ],
+    "description": "Two aliases in one sentence",
+    "tier": 1
+  },
+  {
+    "transcript": "he chains Called by the Grave to negate the Maxx C",
+    "expected_cards": [
+      {"name": "Called by the Grave", "source": "alias"},
+      {"name": "Maxx \"C\"", "source": "alias"}
+    ],
+    "description": "Partial name match (Called by) and quoted card name (Maxx C)",
+    "tier": 1
+  },
+  {
+    "transcript": "activates DRNM, Dark Ruler No More, to bypass the board",
+    "expected_cards": [
+      {"name": "Dark Ruler No More", "source": "alias"}
+    ],
+    "description": "Acronym match - DRNM",
+    "tier": 1
+  }
+]

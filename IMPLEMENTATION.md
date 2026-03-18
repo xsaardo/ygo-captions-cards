@@ -119,6 +119,9 @@ ygo-captions-cards/
 │   ├── card_db.py           # Card database loader + search index
 │   ├── image_cache.py       # Card image downloader + local cache
 │   └── aliases.json         # Curated alias dictionary
+├── telemetry/
+│   ├── __init__.py
+│   └── logger.py            # Structured resolution logging + unresolved segment tracking
 ├── tests/
 │   ├── conftest.py
 │   ├── test_alias_dict.py
@@ -152,7 +155,7 @@ deepgram-sdk>=3.0.0
 pytest>=8.0
 pytest-asyncio>=0.23
 pytest-benchmark>=4.0
-hypothesis>=6.0
+hypothesis>=6.0  # For property-based tests
 ```
 
 ---
@@ -201,6 +204,25 @@ could identify card name spans directly. However:
 - NER would help with *unknown* cards, but those are rare in tournament commentary
   (commentators discuss meta-relevant cards 95%+ of the time)
 
+#### 3.1a Pre-filtering before fuzzy matching
+
+Before running fuzzy match on all 13k cards, pre-filter to cards sharing at least one token with the query:
+
+```python
+def prefilter_candidates(query_tokens: set[str], card_name_tokens: dict[str, set[int]]) -> list[str]:
+    """
+    Filter the card name list to only cards sharing at least one token with the query.
+    card_name_tokens: maps lowercase token -> set of card name indices
+    Returns ~500 candidates instead of 13k, reducing fuzzy time from ~5ms to ~0.5ms.
+    """
+    candidate_indices: set[int] = set()
+    for token in query_tokens:
+        candidate_indices |= card_name_tokens.get(token, set())
+    return [all_card_names[i] for i in candidate_indices]
+```
+
+Build the token index at startup alongside the fuzzy matcher. Pass the pre-filtered list into `process.extract()` instead of the full card name list.
+
 ### 3.2 Tier 1: Alias Dictionary Lookup
 
 ```python
@@ -235,7 +257,7 @@ class FuzzyMatcher:
         results = process.extract(
             query.lower(),
             self._names_lower,
-            scorer=fuzz.token_set_ratio,
+            scorer=lambda q, c: score_match(q, c),
             limit=5,
             score_cutoff=threshold,
         )
@@ -250,12 +272,24 @@ class FuzzyMatcher:
 | `ratio` | Simple Levenshtein ratio | Typo correction ("Nibirue" → "Nibiru") | Partial names ("Ash" vs "Ash Blossom & Joyous Spring") |
 | `partial_ratio` | Best substring match | Substrings ("Sanctifire" in "Albion the Sanctifire Dragon") | Short queries matching unrelated long names |
 | `token_sort_ratio` | Sort tokens, then ratio | Word reordering | Partial matches |
-| **`token_set_ratio`** | **Intersection of token sets** | **Partial names with shared tokens** | **Very short (1-token) queries** |
-| `WRatio` | Weighted combination | General-purpose | Slower, less predictable |
+| `token_set_ratio` | Intersection of token sets | Partial names with shared tokens | Very short (1-token) queries |
+| **`WRatio`** | **Weighted combination** | **Handles both short and long queries** | **Needs length penalty for short/long pairs** |
 
-**Recommendation**: Use `token_set_ratio` as primary scorer. For single-token
-queries (e.g., "Ash"), also run `partial_ratio` and take the best result across
-both scorers. This handles both partial names and substring matches well.
+**Updated scorer recommendation:** Use `WRatio` as the primary scorer (weighted combination — handles both short and long queries) with an explicit length penalty for short query / long candidate pairs:
+
+```python
+def score_match(query: str, candidate: str) -> float:
+    base_score = fuzz.WRatio(query.lower(), candidate.lower())
+    # Penalize short queries matching long candidates
+    # e.g. "Ash" (3 chars) vs "Ash Blossom & Joyous Spring" (27 chars)
+    length_ratio = len(query) / max(len(candidate), 1)
+    if length_ratio < 0.3:
+        penalty = 20 * (1 - length_ratio)
+        return max(0, base_score - penalty)
+    return base_score
+```
+
+Update the `FuzzyMatcher.match()` code to use `score_match` instead of `fuzz.token_set_ratio` directly.
 
 **Performance**: `rapidfuzz.process.extract` against 13,000 card names completes
 in ~3-5ms on a modern CPU. This is fast enough for real-time use without
@@ -271,12 +305,20 @@ class PhoneticMatcher:
         # Pre-encode all card name tokens with Double Metaphone
         self._index: dict[str, list[tuple[str, int]]] = {}  # phonetic_code -> [(card_name, token_pos)]
         for name in card_names:
-            for i, token in enumerate(name.lower().split()):
+            tokens = name.lower().split()
+            for i, token in enumerate(tokens):
                 codes = jellyfish.metaphone(token)  # primary code
                 if codes:
                     self._index.setdefault(codes, []).append((name, i))
 
-    def match(self, query: str) -> list[str]:
+            # In addition to unigram encoding, also encode consecutive token pairs (bigrams)
+            # to reduce false positives from unrelated cards sharing individual phonetic codes.
+            for i in range(len(tokens) - 1):
+                bigram_code = jellyfish.metaphone(tokens[i]) + "_" + jellyfish.metaphone(tokens[i+1])
+                if bigram_code:
+                    self._index.setdefault(bigram_code, []).append((name, i))
+
+    def match(self, query: str, min_token_match_fraction: float = 0.5) -> list[str]:
         query_tokens = query.lower().split()
         candidates: dict[str, int] = {}  # card_name -> matching_token_count
         for token in query_tokens:
@@ -284,9 +326,12 @@ class PhoneticMatcher:
             if code and code in self._index:
                 for card_name, _ in self._index[code]:
                     candidates[card_name] = candidates.get(card_name, 0) + 1
-        # Sort by number of matching phonetic tokens (descending)
-        return sorted(candidates, key=candidates.get, reverse=True)
+        # Only include candidates where matching_tokens / total_query_tokens >= min_fraction
+        return [name for name, count in candidates.items()
+                if count / max(len(query_tokens), 1) >= min_token_match_fraction]
 ```
+
+**Phonetic bigram encoding:** The current implementation encodes individual tokens, which allows false positives when tokens from different cards match separately. The updated code adds consecutive token pair (bigram) encoding to reduce false positives. When matching, score by fraction of matching phonetic tokens (require >= 50% match).
 
 **When phonetic matching adds value:**
 - STT produces "Nibirue" → Metaphone("Nibirue") ≈ Metaphone("Nibiru") → match
@@ -336,6 +381,10 @@ if the LLM disagrees.
 ### 3.6 Resolution Pipeline Orchestration
 
 ```python
+# Configuration constants
+MIN_DISPLAY_CONFIDENCE = 0.75  # Configurable via Config
+INTERIM_DEBOUNCE_MS = 200  # Only resolve interim results that are >= 200ms old
+
 class ResolutionPipeline:
     def __init__(self, alias_dict, fuzzy_matcher, phonetic_matcher, context_resolver):
         self.alias = alias_dict
@@ -373,7 +422,14 @@ class ResolutionPipeline:
             if fuzzy_hits:
                 if len(fuzzy_hits) == 1 or fuzzy_hits[0][1] - fuzzy_hits[1][1] > 10:
                     # Clear winner
-                    events.append(self._make_event(fuzzy_hits[0], "fuzzy", fuzzy_hits[0][1] / 100))
+                    match_score = fuzzy_hits[0][1] / 100
+
+                    # Confidence threshold — suppress matches below minimum
+                    if match_score < MIN_DISPLAY_CONFIDENCE:
+                        logger.info("low_confidence_suppressed", {"query": candidate, "match": fuzzy_hits[0][0], "score": match_score})
+                        continue
+
+                    events.append(self._make_event(fuzzy_hits[0], "fuzzy", match_score))
                     matched_spans.add(candidate)
                     continue
 
@@ -408,6 +464,22 @@ class ResolutionPipeline:
         return result
 ```
 
+**Backpressure monitoring** — add to the async task wrapper:
+
+```python
+if executor_queue_depth > 3:
+    logger.warning("resolver_backpressure", {"queue_depth": executor_queue_depth})
+    # Skip interim-only resolutions when backpressure is detected
+    if not transcript_event.is_final:
+        continue
+```
+
+**Interim transcript debouncing** — don't resolve every 50ms interim update:
+
+```python
+INTERIM_DEBOUNCE_MS = 200  # Only resolve interim results that are >= 200ms old
+```
+
 ---
 
 ## 4. Alias Dictionary Design
@@ -425,7 +497,14 @@ class ResolutionPipeline:
   },
   "entries": {
     // Hand traps & staples
-    "ash": { "id": 14558127, "name": "Ash Blossom & Joyous Spring" },
+    "ash": {
+      "id": 14558127,
+      "name": "Ash Blossom & Joyous Spring",
+      "confidence": 1.0,      // 1.0 = universal, 0.5 = regional slang
+      "source": "universal",  // "universal" | "regional" | "commentator-specific"
+      "added": "2026-02-15",
+      "last_verified": "2026-03-01"
+    },
     "ash blossom": { "id": 14558127, "name": "Ash Blossom & Joyous Spring" },
     "nib": { "id": 27204311, "name": "Nibiru, the Primal Being" },
     "nibiru": { "id": 27204311, "name": "Nibiru, the Primal Being" },
@@ -489,6 +568,12 @@ class ResolutionPipeline:
    └─▶ Review resolver logs for unmatched transcript segments
    └─▶ Add aliases for any cards that were mentioned but not resolved
    └─▶ Add STT error variants for recurring mistranscriptions
+   └─▶ After each tournament: Review telemetry logs for unresolved segments with best_fuzzy score 70-85.
+      These are alias candidates. Run `scripts/update_aliases.py --suggest-from-logs` to auto-generate a list.
+
+4. Maintenance cadence
+   └─▶ Weekly during active format exploration (first 2-3 weeks post-banlist)
+   └─▶ Quarterly otherwise
 ```
 
 ### 4.3 Alias Validation Script
@@ -542,9 +627,31 @@ class DeepgramClient(STTClient):
 ```
 
 **Keyterm strategy:**
-- Dynamically compose the keyterm list per match
-- Priority order: (1) both players' deck card names, (2) universal staples, (3) common side deck cards
-- Limit: 100 terms. With ~50 cards per deck + ~30 staples, this fits comfortably.
+
+Priority ranking when deck size exceeds 100-term limit:
+
+```python
+# Priority ranking when deck size exceeds 100-term limit:
+# 1. Main deck archetype cards (both players)
+# 2. Extra deck boss monsters (both players)
+# 3. Universal staples (hand traps, board breakers)
+# 4. Side deck tech cards
+# 5. Generic utility cards (lowest priority, most likely to be caught by fuzzy)
+def build_keyterm_list(player1_deck, player2_deck, staples, limit=100) -> list[str]:
+    priority_ordered = (
+        player1_deck.archetype_cards + player2_deck.archetype_cards +
+        player1_deck.boss_monsters + player2_deck.boss_monsters +
+        staples +
+        player1_deck.side_tech + player2_deck.side_tech
+    )
+    seen = set()
+    result = []
+    for card in priority_ordered:
+        if card.name not in seen and len(result) < limit:
+            seen.add(card.name)
+            result.append(card.name)
+    return result
+```
 
 ### 5.3 Interim vs. Final Transcripts
 
@@ -554,10 +661,25 @@ STT services emit two types of results:
 |------|----------|-----|
 | **Interim** | May change as more audio arrives | Use for "speculative" resolution — show a card immediately but be prepared to replace it |
 | **Final** | Locked, won't change | Use for "confirmed" resolution — log the match, update cooldown timers |
+| **Interim (timeout)** | >2s old, no final received | Treat as final for logging and cooldown |
 
 **Policy**: Resolve on interim results for minimum latency, but only log/count
 matches from final results. If an interim result triggers a card display and the
 final result changes the match, send a `hideCard` + new `showCard`.
+
+**Interim transcript timeout** — if an interim transcript is >2 seconds old and no final result has arrived (network hiccup, utterance end not detected), treat it as final for logging and cooldown purposes:
+
+```python
+INTERIM_FINALIZATION_TIMEOUT_S = 2.0
+
+async def finalize_stale_interims():
+    """Promote interim transcripts to final if they've been pending too long."""
+    now = time.time()
+    for transcript in pending_interims:
+        if now - transcript.timestamp > INTERIM_FINALIZATION_TIMEOUT_S:
+            await process_as_final(transcript)
+            pending_interims.remove(transcript)
+```
 
 ### 5.4 Audio Capture
 
@@ -608,7 +730,15 @@ async def broadcast_card_event(event: CardEvent):
         "matchSource": event.match_source,
         "matchScore": event.match_score,
     })
-    await asyncio.gather(*(ws.send_str(payload) for ws in clients))
+    dead_clients = set()
+    results = await asyncio.gather(
+        *(ws.send_str(payload) for ws in clients),
+        return_exceptions=True  # Don't abort broadcast if one client disconnects
+    )
+    for ws, result in zip(list(clients), results):
+        if isinstance(result, Exception):
+            dead_clients.add(ws)
+    clients -= dead_clients  # Evict disconnected clients
 ```
 
 ### 6.2 Overlay Client (Browser Source)
@@ -765,6 +895,9 @@ class Config:
     fuzzy_single_token_threshold: int = 90  # Higher threshold for 1-word queries
     phonetic_enabled: bool = True
     dedup_cooldown_s: float = 10.0          # Seconds before same card can re-trigger
+    min_display_confidence: float = 0.75    # Suppress matches below this threshold
+    interim_debounce_ms: int = 200          # Min age of interim transcript before resolving
+    interim_finalization_timeout_s: float = 2.0  # Treat stale interim as final after this
 
     # Context
     player1_deck: str = ""                  # Archetype name, set per match
@@ -775,6 +908,7 @@ class Config:
     display_mode: str = "latest"            # "latest" | "queue" | "stack"
     hold_duration_ms: int = 5000
     max_visible_cards: int = 3              # For "stack" mode
+    card_images_baseline_path: str = "data/cards_baseline.json"  # Fallback if API down
 
     # Audio
     audio_source: str = "default"           # PulseAudio source name
@@ -1066,6 +1200,50 @@ def test_phonetic_index_build_speed(benchmark, card_names):
     # Target: <500ms for full 13k card database (one-time at startup)
 ```
 
+### 10.5b Overlapping Card Name Tests
+
+Explicitly test disambiguation for archetype families with similar names:
+
+```python
+AMBIGUOUS_NAME_CASES = [
+    ("Blue-Eyes", ["Blue-Eyes White Dragon", "Blue-Eyes Alternative White Dragon", "Blue-Eyes Chaos MAX Dragon"]),
+    ("Snake-Eye", ["Snake-Eye Ash", "Snake-Eye Oak", "Snake-Eyes Poplar"]),
+]
+
+@pytest.mark.parametrize("query, candidates", AMBIGUOUS_NAME_CASES)
+def test_disambiguation_for_archetype_families(query, candidates, pipeline_with_context):
+    # With deck context set, should prefer card from active player's deck
+    events = pipeline_with_context.resolve(f"he activates {query}")
+    assert len(events) == 1  # Should not return all cards in the family
+```
+
+### 10.5c Stress Test for Rapid Commentary
+
+The #1 real-world failure mode: resolver falls behind during combo sequences.
+
+```python
+def test_rapid_fire_commentary_latency(pipeline, benchmark):
+    """Simulate a combo sequence with 10 cards mentioned in quick succession."""
+    transcripts = [
+        "activates Snake Eye Ash",
+        "responds with Infinite Impermanence",
+        "chains Ash Blossom",
+        "Nibiru comes down after the fifth summon",
+        "he has Called by the Grave",
+        "Promethean Princess from the grave",
+        "links into Flamberge",
+        "and now Snake Eyes Poplar",
+        "activates Diabell",
+        "opponent uses Dark Ruler No More",
+    ]
+    def run_all():
+        for t in transcripts:
+            pipeline.resolve(t)
+    result = benchmark(run_all)
+    # Total time for 10 resolutions must be under 500ms
+    assert benchmark.stats["mean"] < 0.5
+```
+
 ### 10.6 End-to-End Smoke Test
 
 A manual/semi-automated test using recorded tournament audio:
@@ -1083,6 +1261,13 @@ A manual/semi-automated test using recorded tournament audio:
 This can be partially automated by feeding a pre-recorded WAV file through the
 STT client instead of live audio, and comparing the output events against a
 manually annotated expected list.
+
+**Dry-run VOD mode** — the system must support a `--dry-run-vod <audio_file>` CLI flag that:
+- Feeds a WAV file through the STT client instead of live audio
+- Compares output card events against a manually-annotated `expected_cards.json`
+- Reports precision and recall
+
+Acceptance criteria: **90%+ precision, 85%+ recall** before using in production.
 
 ### 10.7 Test Coverage Targets
 
@@ -1113,6 +1298,10 @@ python scripts/download_cards.py
 
 # Set STT API key
 export STT_API_KEY="your-deepgram-key"
+
+# Bundle a baseline card DB so startup works offline
+# Update periodically with: python scripts/download_cards.py --update-baseline
+cp data/cards.json data/cards_baseline.json
 ```
 
 ### 11.2 Running
@@ -1169,6 +1358,7 @@ aliases and STT error patterns.
 | Card image missing from cache | Show card name as text overlay instead of image |
 | Alias dict file missing/corrupt | Fall back to fuzzy-only resolution with warning log |
 | Overlay client disconnects | No impact on pipeline. Client reconnects automatically. |
+| YGOProDeck API unavailable at startup | Load from `data/cards_baseline.json`. Log a warning. Do not block startup. |
 
 ---
 
@@ -1205,3 +1395,73 @@ reading from a file instead of a live audio stream.
 Track which cards are mentioned most frequently, build heatmaps of card mention
 timing (early game vs. late game), and surface trends across tournaments. This
 data has value for content creators and meta analysts.
+
+---
+
+## 13. Operator Tooling
+
+Tournament staff need real-time visibility and manual controls. This is a production requirement, not a nice-to-have.
+
+### 13.1 Control Panel (HTTP UI)
+
+Expose a simple web UI at `http://localhost:9090/admin`:
+
+| Control | Action |
+|---------|--------|
+| Manual card trigger | Type a card name → force display |
+| Clear overlay | Immediately hide all displayed cards |
+| Set match context | Enter player1/player2 deck archetypes |
+| Hold duration | Slider to adjust how long cards display |
+| Confidence threshold | Slider to tune false positive suppression |
+| Live resolver log | Real-time feed of resolved/unresolved segments |
+
+### 13.2 Telemetry & Alias Gap Detection
+
+Log every resolution attempt:
+
+```python
+# Successful resolution
+logger.info("card_resolved", extra={
+    "transcript": "he activates ash",
+    "card_name": "Ash Blossom & Joyous Spring",
+    "card_id": 14558127,
+    "match_source": "alias",
+    "match_score": 1.0,
+    "latency_ms": 0.3,
+})
+
+# Unresolved segment (alias gap candidate)
+logger.info("unresolved_segment", extra={
+    "transcript": "he flips up the anti spell",
+    "candidates_tried": ["anti spell"],
+    "best_fuzzy": ("Anti-Spell Fragrance", 72),  # Score 70-85 = likely alias candidate
+    "tournament_id": "YCS_2026_Q1",
+})
+```
+
+After each tournament, run:
+
+```bash
+python scripts/update_aliases.py --suggest-from-logs logs/tournament_2026_Q1.jsonl
+```
+
+This outputs a list of alias candidates sorted by frequency, ready to review and commit.
+
+### 13.3 Graceful Shutdown
+
+The main process must handle SIGTERM/SIGINT cleanly:
+
+```python
+async def shutdown(loop):
+    # 1. Stop accepting new audio
+    await stt_client.disconnect()
+    # 2. Drain the resolver queue (with timeout)
+    await asyncio.wait_for(resolver_queue.join(), timeout=5.0)
+    # 3. Broadcast a final "clear" event to all overlay clients
+    await broadcast_card_event(CardEvent(action="clear", ...))
+    # 4. Close all WebSocket connections
+    await asyncio.gather(*(ws.close() for ws in clients))
+    # 5. Flush telemetry logs
+    await telemetry_logger.flush()
+    loop.stop()
+```

@@ -130,12 +130,15 @@ class ResolutionPipeline:
                     )
                 continue
 
-            # Skip very short candidates for fuzzy/phonetic (too noisy)
-            if len(candidate) < 4:
+            # Skip short candidates for fuzzy/phonetic (too noisy)
+            # Require at least 12 characters to avoid false positives on common words
+            # This ensures we only fuzzy-match meaningful card name fragments
+            if len(candidate) < 12:
                 continue
 
             # Tier 2: Fuzzy matching
-            fuzzy_hits = self.fuzzy.match(candidate, threshold=80)
+            # Use threshold of 88 to avoid false positives on common phrases
+            fuzzy_hits = self.fuzzy.match(candidate, threshold=88)
             if fuzzy_hits:
                 # Check if there's a clear winner
                 if len(fuzzy_hits) == 1 or (
@@ -173,11 +176,21 @@ class ResolutionPipeline:
                     continue
 
                 # Multiple close matches — use context disambiguation (Tier 4)
+                # But only if the top match has sufficient confidence
+                top_score = fuzzy_hits[0][1] / 100.0
+                if top_score < self.min_display_confidence:
+                    self.logger.log_unresolved(
+                        transcript=transcript,
+                        candidates_tried=[candidate],
+                        best_fuzzy=fuzzy_hits[0],
+                    )
+                    continue
+
                 best_name = self.context.disambiguate(fuzzy_hits, self.card_db)
                 if best_name:
                     card = self.card_db.get_by_name(best_name)
                     if card:
-                        event = self._make_card_event(card, "context", 0.75)
+                        event = self._make_card_event(card, "context", top_score)
                         if event:
                             events.append(event)
                             matched_spans.add(candidate)
@@ -186,30 +199,32 @@ class ResolutionPipeline:
                                 card_name=best_name,
                                 card_id=card.id,
                                 match_source="context",
-                                match_score=0.75,
+                                match_score=top_score,
                                 latency_ms=0.0,
                             )
                 continue
 
             # Tier 3: Phonetic fallback
-            phonetic_hits = self.phonetic.match(candidate)
-            if phonetic_hits:
-                card_name = phonetic_hits[0]
-                card = self.card_db.get_by_name(card_name)
-                if card:
-                    event = self._make_card_event(card, "phonetic", 0.6)
-                    if event:
-                        events.append(event)
-                        matched_spans.add(candidate)
-                        self.logger.log_resolved(
-                            transcript=transcript,
-                            card_name=card_name,
-                            card_id=card.id,
-                            match_source="phonetic",
-                            match_score=0.6,
-                            latency_ms=0.0,
-                        )
-                continue
+            # Phonetic has lower confidence (0.6), only use if above threshold
+            if 0.6 >= self.min_display_confidence:
+                phonetic_hits = self.phonetic.match(candidate)
+                if phonetic_hits:
+                    card_name = phonetic_hits[0]
+                    card = self.card_db.get_by_name(card_name)
+                    if card:
+                        event = self._make_card_event(card, "phonetic", 0.6)
+                        if event:
+                            events.append(event)
+                            matched_spans.add(candidate)
+                            self.logger.log_resolved(
+                                transcript=transcript,
+                                card_name=card_name,
+                                card_id=card.id,
+                                match_source="phonetic",
+                                match_score=0.6,
+                                latency_ms=0.0,
+                            )
+                    continue
 
         # Deduplicate events
         return self._dedup(events)

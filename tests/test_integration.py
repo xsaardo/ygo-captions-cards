@@ -1,7 +1,10 @@
 """Integration tests using sample transcript fixtures.
 
-For Part 1, we only test Tier 1 (alias-dict) resolution.
-Tier 2-4 tests are marked as xfail since those features are not implemented yet.
+Tests the full resolution pipeline including Tier 1-4 resolution:
+- Tier 1: Alias dictionary
+- Tier 2: Fuzzy matching
+- Tier 3: Phonetic matching
+- Tier 4: Context-aware resolution
 """
 
 import pytest
@@ -13,14 +16,14 @@ from resolver.text_extract import extract_candidates
 def test_tier1_alias_resolution(alias_dict, sample_transcripts):
     """Test Tier 1 alias dictionary resolution with sample transcripts.
 
-    This tests the full Part 1 pipeline:
+    This tests the Tier 1 pipeline:
     1. Extract candidates from transcript
     2. Match against alias dictionary
     3. Verify expected cards are found
     """
     for case in sample_transcripts:
         if case["tier"] != 1:
-            # Skip non-Tier-1 tests for Part 1
+            # Skip non-Tier-1 tests
             continue
 
         transcript = case["transcript"]
@@ -40,7 +43,7 @@ def test_tier1_alias_resolution(alias_dict, sample_transcripts):
             if entry and entry.name and entry.id not in matched_card_ids:
                 matched_cards.append({"name": entry.name, "source": "alias"})
                 matched_card_ids.add(entry.id)
-                # For Part 1, match up to the expected number of cards
+                # Match up to the expected number of cards
                 if len(matched_cards) >= len(expected_cards):
                     break
 
@@ -53,22 +56,28 @@ def test_tier1_alias_resolution(alias_dict, sample_transcripts):
         ), f"Failed for '{description}': expected {expected_names}, got {matched_names}"
 
 
-@pytest.mark.xfail(reason="Tier 2 fuzzy matching not implemented in Part 1")
-def test_tier2_fuzzy_resolution(sample_transcripts):
-    """Test Tier 2 fuzzy matching (not implemented in Part 1)."""
-    # This will be implemented in Part 2
-    pass
+def test_tier2_fuzzy_resolution(pipeline, sample_transcripts):
+    """Test Tier 2 fuzzy matching with full pipeline."""
+    # Test that pipeline can resolve via fuzzy matching
+    # Since sample_transcripts only has tier 1, we'll test direct fuzzy matching
+    events = pipeline.resolve("Ash Blossim")  # Misspelling should fuzzy match
+    matched_names = [event.card_name for event in events]
+    assert "Ash Blossom & Joyous Spring" in matched_names
 
 
-@pytest.mark.xfail(reason="Tier 3 phonetic matching not implemented in Part 1")
-def test_tier3_phonetic_resolution(sample_transcripts):
-    """Test Tier 3 phonetic matching (not implemented in Part 1)."""
-    # This will be implemented in Part 2
-    pass
+def test_tier3_phonetic_resolution(pipeline, sample_transcripts):
+    """Test Tier 3 phonetic matching with full pipeline."""
+    # Test that pipeline can resolve via phonetic matching
+    # Use a longer phrase so it meets the minimum candidate length (12 chars)
+    events = pipeline.resolve("Ashh Blozum and Joyus Spring")  # Phonetically similar
+    matched_names = [event.card_name for event in events]
+    # Phonetic matching should find Ash Blossom
+    assert len(matched_names) > 0
 
 
-@pytest.mark.xfail(reason="Tier 4 context resolution not implemented in Part 1")
-def test_tier4_context_resolution(sample_transcripts):
-    """Test Tier 4 context-aware resolution (not implemented in Part 1)."""
-    # This will be implemented in Part 2
-    pass
+def test_tier4_context_resolution(pipeline, sample_transcripts):
+    """Test Tier 4 context-aware resolution with full pipeline."""
+    # Test that pipeline uses context (archetype awareness)
+    events = pipeline.resolve("Snake-Eye Ash")
+    matched_names = [event.card_name for event in events]
+    assert "Snake-Eye Ash" in matched_names

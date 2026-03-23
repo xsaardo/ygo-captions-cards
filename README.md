@@ -2,10 +2,11 @@
 
 Real-time card overlay for Yu-Gi-Oh! tournament livestreams. Listens to commentary audio, identifies mentioned cards, and displays them in OBS.
 
-**Current Status**: Part 1 — Alias Dictionary + Overlay Server
+**Current Status**: Part 3 — Full Live Pipeline
 
-## Features (Part 1)
+## Features
 
+### Part 1 ✅
 - ✅ Alias dictionary with ~80 curated entries (hand traps, staples, meta cards)
 - ✅ Text extraction with n-gram candidate generation
 - ✅ HTTP + WebSocket overlay server
@@ -13,7 +14,21 @@ Real-time card overlay for Yu-Gi-Oh! tournament livestreams. Listens to commenta
 - ✅ Manual card trigger API for testing
 - ✅ Structured JSON logging
 
-**Coming in Part 2**: STT integration, fuzzy/phonetic matching, full async pipeline
+### Part 2 ✅
+- ✅ Fuzzy string matching with rapidfuzz (13k+ card names)
+- ✅ Phonetic matching with Double Metaphone for STT error correction
+- ✅ Context-aware disambiguation using deck archetypes
+- ✅ 4-tier resolution pipeline (alias → fuzzy → phonetic → context)
+- ✅ STT client scaffolding (Deepgram + AssemblyAI)
+
+### Part 3 ✅
+- ✅ Live audio capture via ffmpeg (macOS, Linux, Windows)
+- ✅ Full async pipeline (audio → STT → resolver → overlay)
+- ✅ Interim transcript debouncing
+- ✅ Graceful shutdown and error handling
+- ✅ Real-time card display from live commentary
+
+**Coming in Part 4**: LLM disambiguation fallback, VOD dry-run mode, telemetry analytics
 
 ## Installation
 
@@ -38,19 +53,55 @@ python scripts/download_cards.py
 
 ## Running
 
-Start the overlay server:
+### Basic Mode (No STT)
+
+Start the overlay server without live audio:
 
 ```bash
 python main.py
 ```
 
-The server will start on `http://localhost:9090` by default.
+The server will start on `http://localhost:9090` by default. Use the `/api/resolve` endpoint to test card resolution.
+
+### Live Audio Mode (Part 3)
+
+To enable live audio capture and STT:
+
+```bash
+# Set your STT API key (Deepgram or AssemblyAI)
+export STT_API_KEY="your-api-key-here"
+
+# Start with STT provider
+python main.py --stt-provider deepgram
+# or
+python main.py --stt-provider assemblyai
+```
+
+Requirements for live audio:
+- ffmpeg must be installed and in PATH
+- System audio must be configured (see below)
+
+### System Audio Setup
+
+**macOS:**
+- Install ffmpeg: `brew install ffmpeg`
+- Install BlackHole or Loopback Audio to capture system audio
+- Set BlackHole as the audio input in System Preferences
+
+**Linux:**
+- Install ffmpeg: `sudo apt install ffmpeg`
+- Use PulseAudio monitor source (default configuration works)
+
+**Windows:**
+- Install ffmpeg and add to PATH
+- Enable "Stereo Mix" in Sound settings
 
 ### Options
 
 ```bash
 python main.py --overlay-port 8080  # Use a different port
 python main.py --player1-deck "Snake-Eye" --player2-deck "Yubel"  # Set match context
+python main.py --stt-provider deepgram --stt-api-key YOUR_KEY  # Enable live audio
 ```
 
 ## OBS Setup
@@ -203,15 +254,25 @@ Get current server status.
 
 ```
 ygo-captions-cards/
-├── main.py              # Entry point
+├── main.py              # Entry point with full async pipeline
 ├── config.py            # Configuration dataclass
 ├── requirements.txt     # Python dependencies
+├── audio/
+│   └── capture.py       # Audio capture via ffmpeg
+├── stt/
+│   ├── base.py          # STT client interface
+│   ├── deepgram_client.py   # Deepgram streaming client
+│   └── assemblyai_client.py # AssemblyAI streaming client
 ├── data/
 │   ├── aliases.json     # Alias dictionary (~80 entries)
 │   ├── card_db.py       # Card database loader
 │   └── image_cache.py   # Card image cache
 ├── resolver/
 │   ├── alias_dict.py    # Tier 1: Alias lookup
+│   ├── fuzzy.py         # Tier 2: Fuzzy matching
+│   ├── phonetic.py      # Tier 3: Phonetic matching
+│   ├── context.py       # Tier 4: Context disambiguation
+│   ├── pipeline.py      # 4-tier resolution orchestration
 │   └── text_extract.py  # N-gram candidate extraction
 ├── overlay/
 │   ├── server.py        # HTTP + WebSocket server
@@ -226,7 +287,12 @@ ygo-captions-cards/
 └── tests/
     ├── conftest.py
     ├── test_alias_dict.py
+    ├── test_fuzzy.py
+    ├── test_phonetic.py
+    ├── test_pipeline.py
     ├── test_text_extract.py
+    ├── test_audio_capture.py
+    ├── test_stt_clients.py
     ├── test_integration.py
     └── fixtures/
         ├── aliases_test.json

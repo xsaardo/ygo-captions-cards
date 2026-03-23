@@ -9,8 +9,10 @@ import argparse
 import asyncio
 import signal
 import sys
+import time
 from typing import Optional
 
+from audio.capture import AudioCapture
 from config import Config
 from data.card_db import CardDatabase
 from data.image_cache import ImageCache
@@ -23,21 +25,35 @@ from resolver.pipeline import ResolutionPipeline
 from telemetry.logger import ResolverLogger
 
 
-async def shutdown(server: OverlayServer, stt_client: Optional = None) -> None:
-    """Gracefully shut down the server and STT client.
+async def shutdown(
+    server: OverlayServer,
+    stt_client: Optional = None,
+    audio_capture: Optional[AudioCapture] = None,
+) -> None:
+    """Gracefully shut down the server, STT client, and audio capture.
 
     Args:
         server: The overlay server to shut down
         stt_client: Optional STT client to disconnect
+        audio_capture: Optional audio capture to stop
     """
     print("\nShutting down...")
 
+    # Stop audio capture first
+    if audio_capture:
+        try:
+            await audio_capture.stop()
+        except Exception as e:
+            print(f"Error stopping audio capture: {e}")
+
+    # Disconnect STT client
     if stt_client:
         try:
             await stt_client.disconnect()
         except Exception as e:
             print(f"Error disconnecting STT client: {e}")
 
+    # Stop overlay server
     await server.stop()
 
 
@@ -78,8 +94,8 @@ async def main() -> None:
         overlay_port=args.overlay_port,
         player1_deck=args.player1_deck,
         player2_deck=args.player2_deck,
-        stt_provider=args.stt_provider or config.Config().stt_provider,
-        stt_api_key=args.stt_api_key or config.Config().stt_api_key,
+        stt_provider=args.stt_provider or Config().stt_provider,
+        stt_api_key=args.stt_api_key or Config().stt_api_key,
     )
 
     print("YGO Card Overlay - Part 2")
@@ -223,8 +239,10 @@ async def main() -> None:
     )
     print(f"    http://localhost:{config.overlay_port}/api/resolve")
 
-    # Initialize STT client if configured
+    # Initialize STT client and audio capture if configured
     stt_client = None
+    audio_capture = None
+
     if args.stt_provider and config.stt_api_key:
         print(f"\nInitializing {args.stt_provider} STT client...")
 
@@ -235,15 +253,108 @@ async def main() -> None:
             from stt.assemblyai_client import AssemblyAIClient
             stt_client = AssemblyAIClient(config.stt_api_key)
 
-        # TODO: Wire up audio capture and transcript processing
-        # This would involve:
-        # 1. Starting ffmpeg to capture system audio
-        # 2. Piping audio chunks to stt_client.send_audio()
-        # 3. Processing transcripts from stt_client.receive_transcripts()
-        # 4. Running them through the pipeline
-        # 5. Broadcasting card events
+        # Initialize audio capture
+        print("Initializing audio capture...")
+        audio_capture = AudioCapture(
+            sample_rate=config.audio_sample_rate,
+            chunk_ms=config.audio_chunk_ms,
+        )
 
-        print("STT client initialized (audio capture not yet implemented)")
+        # Connect STT client
+        print("Connecting to STT service...")
+        await stt_client.connect([])  # TODO: Add keyterms based on deck context
+
+        # Start audio capture
+        print("Starting audio capture...")
+        await audio_capture.start()
+
+        # Track pending interim transcripts for debouncing
+        pending_interims = {}  # transcript_id -> (transcript, timestamp)
+
+        async def audio_sender_task():
+            """Task A: Read audio chunks and send to STT client."""
+            try:
+                async for chunk in audio_capture.audio_chunks():
+                    await stt_client.send_audio(chunk)
+            except Exception as e:
+                print(f"Error in audio sender task: {e}")
+
+        async def transcript_receiver_task():
+            """Task B: Receive transcripts, resolve cards, and broadcast."""
+            nonlocal pending_interims
+            try:
+                async for transcript_event in stt_client.receive_transcripts():
+                    # Handle interim transcripts with debouncing
+                    if not transcript_event.is_final:
+                        # Only resolve interim transcripts that are old enough
+                        now = time.time()
+
+                        # Check if we should debounce this interim
+                        if config.interim_debounce_ms > 0:
+                            # Store interim for later processing
+                            transcript_id = transcript_event.text[:50]  # Use prefix as ID
+                            pending_interims[transcript_id] = (transcript_event, now)
+
+                            # Check for stale interims that should be treated as final
+                            stale_threshold = config.interim_finalization_timeout_s
+                            for tid, (tevt, ts) in list(pending_interims.items()):
+                                age = now - ts
+
+                                # Process if old enough for debouncing
+                                if age >= config.interim_debounce_ms / 1000.0:
+                                    # Resolve the transcript
+                                    events = pipeline.resolve(tevt.text)
+                                    for event in events:
+                                        await server._show_card(
+                                            event.card_id,
+                                            event.card_name,
+                                            event.match_source,
+                                            event.match_score,
+                                        )
+
+                                    # If it's very stale, treat as final
+                                    if age >= stale_threshold:
+                                        del pending_interims[tid]
+                        else:
+                            # No debouncing - resolve immediately
+                            events = pipeline.resolve(transcript_event.text)
+                            for event in events:
+                                await server._show_card(
+                                    event.card_id,
+                                    event.card_name,
+                                    event.match_source,
+                                    event.match_score,
+                                )
+                    else:
+                        # Final transcript - resolve immediately and log
+                        events = pipeline.resolve(transcript_event.text)
+                        for event in events:
+                            await server._show_card(
+                                event.card_id,
+                                event.card_name,
+                                event.match_source,
+                                event.match_score,
+                            )
+
+                        # Clear any pending interims for this transcript
+                        transcript_id = transcript_event.text[:50]
+                        if transcript_id in pending_interims:
+                            del pending_interims[transcript_id]
+
+                        # Log final transcripts
+                        if events:
+                            print(f"[FINAL] '{transcript_event.text}' -> {[e.card_name for e in events]}")
+                        else:
+                            print(f"[FINAL] '{transcript_event.text}' -> No matches")
+            except Exception as e:
+                print(f"Error in transcript receiver task: {e}")
+
+        # Launch both tasks concurrently
+        print("Starting live audio pipeline...")
+        audio_task = asyncio.create_task(audio_sender_task())
+        transcript_task = asyncio.create_task(transcript_receiver_task())
+
+        print("Live audio pipeline started!")
     else:
         print("\nNo STT configured — use /api/resolve for testing")
 
@@ -254,7 +365,7 @@ async def main() -> None:
     loop = asyncio.get_event_loop()
 
     def handle_signal():
-        asyncio.create_task(shutdown(server, stt_client))
+        asyncio.create_task(shutdown(server, stt_client, audio_capture))
 
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, handle_signal)
